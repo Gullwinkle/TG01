@@ -3,9 +3,11 @@ import random
 import requests
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import CommandStart, Command
-from aiogram.types import Message, BotCommand
+from aiogram.types import Message, BotCommand, FSInputFile
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+from gtts import gTTS
+import os
 
 from config import TOKEN, API_KEY
 
@@ -34,7 +36,7 @@ class WeatherState(StatesGroup):
 
 @dp.message(CommandStart())
 async def start(message: Message):
-    await message.answer('Привет!')
+    await message.answer(f'Привет, {message.from_user.full_name}!')
 
 
 @dp.message(Command('help'))
@@ -50,6 +52,37 @@ async def photo(message: Message):
     ]
     await message.answer_photo(photo=random.choice(list), caption='Бендер топ')
 
+@dp.message(Command('video'))
+async def video(message: Message):
+    await bot.send_chat_action(message.chat.id, 'upload_video')
+    video = FSInputFile('video.mp4')
+    await bot.send_video(message.chat.id, video)
+
+@dp.message(Command('voice'))
+async def voice(message: Message):
+    voice = FSInputFile('sample.ogg')
+    await message.answer_voice(voice)
+
+@dp.message(Command('audio'))
+async def audio(message: Message):
+    audio = FSInputFile('audio.mp3')
+    await bot.send_audio(message.chat.id, audio)
+
+@dp.message(Command('training'))
+async def training(message: Message):
+   training_list = [
+       "Тренировка 1:\\n1. Скручивания: 3 подхода по 15 повторений\\n2. Велосипед: 3 подхода по 20 повторений (каждая сторона)\\n3. Планка: 3 подхода по 30 секунд",
+       "Тренировка 2:\\n1. Подъемы ног: 3 подхода по 15 повторений\\n2. Русский твист: 3 подхода по 20 повторений (каждая сторона)\\n3. Планка с поднятой ногой: 3 подхода по 20 секунд (каждая нога)",
+       "Тренировка 3:\\n1. Скручивания с поднятыми ногами: 3 подхода по 15 повторений\\n2. Горизонтальные ножницы: 3 подхода по 20 повторений\\n3. Боковая планка: 3 подхода по 20 секунд (каждая сторона)"
+   ]
+   rand_tr = random.choice(training_list)
+   await message.answer(f"Это ваша мини-тренировка на сегодня {rand_tr}")
+   tts = gTTS(text=rand_tr, lang='ru')
+   tts.save('training.ogg')
+   audio = FSInputFile('training.ogg')
+   await bot.send_voice(message.chat.id, audio)
+   os.remove('training.ogg')
+
 # Обработчик команды /weather
 @dp.message(Command('weather'))
 async def cmd_weather(message:Message, state: FSMContext):
@@ -64,9 +97,6 @@ async def process_city(message:Message, state: FSMContext):
     await message.answer(weather_info)
     await state.clear()  # сбрасываем состояние
 
-@dp.message(F.text == 'Привет')
-async def echo(message: Message):
-    await message.answer('Привет! Я бот!')
 
 @dp.message(F.photo)
 async def react_photo(message: Message):
@@ -76,6 +106,7 @@ async def react_photo(message: Message):
         'Не отправляй мне такое',
     ]
     await message.answer(random.choice(list))
+    await bot.download(message.photo[-1], destination=f'img/{message.photo[-1].file_id}.jpg')
 
 async def get_weather(city):
     try:
@@ -87,6 +118,15 @@ async def get_weather(city):
         return f'В городе {city} сейчас {temp} градусов, давление {round(pressure * 0.750062)} мм рт ст, влажность {humidity}%'
     except Exception as ex:
         return 'Проверьте название города'
+
+@dp.message()
+async def test(message: Message):
+    if message.text.lower() == 'test':
+        await message.answer('Тестируем')
+
+@dp.message()
+async def echo(message: Message):
+    await message.send_copy(message.chat.id)
 
 async def main():
     dp.startup.register(on_startup)
